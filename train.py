@@ -1,30 +1,3 @@
-# %pip install tensorflow-addons
-# %load_ext tensorboard
-# import os
-# import gc
-# import sys
-# import glob
-# import random
-# from random import shuffle
-# import cv2
-# import zipfile
-# import math
-# import time
-# import datetime
-# import numpy as np
-# from PIL import Image
-# import keras
-# from keras.utils import plot_model
-# from keras.models import Model
-# import tensorflow as tf
-# import tensorflow_addons as tfa
-# from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau, TensorBoard
-# from tensorflow.keras import layers, models
-# from tensorflow.keras.layers import Conv2D, MaxPooling2D, Input, Conv2DTranspose, Concatenate, BatchNormalization, LayerNormalization, UpSampling2D, LeakyReLU, Dropout, Activation
-# from tensorflow.keras.optimizers import Adam, SGD
-# sys.path.append("/content/drive/MyDrive/MaskAway")
-# import DiffAugment_tf
-
 import os
 import zipfile
 import random
@@ -40,13 +13,11 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import Adam
 from keras import backend as K
 
-
-
 # Create directory if needed
 os.makedirs(DATASET_PATH, exist_ok=True)
 
 # Unzip dataset - contains three folders (orig, mask, binary)
-with zipfile.ZipFile(BASE_PATH + '/dataset-1500.zip', 'r') as zip_ref:
+with zipfile.ZipFile(BASE_PATH + '/dataset-200k.zip', 'r') as zip_ref:
     zip_ref.extractall(DATASET_PATH)
 
 # Create datasets for training and testing
