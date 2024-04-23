@@ -98,7 +98,7 @@ def define_discriminator(image_shape=(256, 256, 3)):
     d = layers.LeakyReLU(alpha=0.2)(d)
     d = Dropout(0.3)(d)
 
-    Third Convolution Block
+    # Third Convolution Block
     d = layers.Conv2D(filters[2], (4, 4), strides=(2, 2), padding='same')(d)
     d = layers.LayerNormalization()(d)
     d = layers.LeakyReLU(alpha=0.2)(d)
