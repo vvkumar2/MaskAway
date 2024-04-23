@@ -13,12 +13,14 @@ from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import Adam
 from keras import backend as K
 
+'''
 # Create directory if needed
 os.makedirs(DATASET_PATH, exist_ok=True)
 
 # Unzip dataset - contains three folders (orig, mask, binary)
 with zipfile.ZipFile(BASE_PATH + '/dataset-200k.zip', 'r') as zip_ref:
     zip_ref.extractall(DATASET_PATH)
+'''
 
 # Create datasets for training and testing
 gan_original_images_paths = get_file_paths(ORIGINAL_IMAGES_PATH)[:DATASET_SIZE]
@@ -57,6 +59,13 @@ ckpt = tf.train.Checkpoint(generator=generator,
                            D_optimizer=discriminator_optimizer)
 
 ckpt_manager = tf.train.CheckpointManager(ckpt, CKPT_PATH, max_to_keep=5)
+
+# if a checkpoint exists, restore the latest checkpoint.
+if ckpt_manager.latest_checkpoint:
+    ckpt.restore(ckpt_manager.latest_checkpoint)
+    latest_epoch = int(ckpt_manager.latest_checkpoint.split('-')[1])
+    CURRENT_EPOCH = latest_epoch * SAVE_EVERY_N_EPOCH + 1
+    print ('Latest checkpoint of epoch {} restored!!'.format(CURRENT_EPOCH))
 
 
 def update_learning_rate(current_lr, decay_factor=DECAY_FACTOR):

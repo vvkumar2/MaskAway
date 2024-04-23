@@ -1,4 +1,5 @@
 import tensorflow as tf
+from constants import *
 from tensorflow.keras import layers, models
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Input, Conv2DTranspose, Concatenate, BatchNormalization, LayerNormalization, UpSampling2D, LeakyReLU, Dropout, Activation
 
@@ -48,19 +49,19 @@ def define_generator(image_shape=(256, 256, 4)):
     p3 = MaxPooling2D((2, 2))(c3)
 
     # Added an additional convolutional layer here
-    c4 = Conv2D(filters[3], (3, 3), activation=LeakyReLU(alpha=0.2), padding='same')(p3)
-    c4 = squeeze_excite_block(c4)
-    p4 = MaxPooling2D((2, 2))(c4)
+    #c4 = Conv2D(filters[3], (3, 3), activation=LeakyReLU(alpha=0.2), padding='same')(p3)
+    #c4 = squeeze_excite_block(c4)
+    #p4 = MaxPooling2D((2, 2))(c4)
 
     # Bottleneck with atrous convolutions
-    bn = atrous_conv_block(p4, filters[4])
+    bn = atrous_conv_block(p3, filters[3])
 
     # Decoder with SE blocks after first three blocks and added fourth block
-    d4 = upsample_and_concatenate(bn, c4, filters[3])
-    d4 = Conv2D(filters[3], (3, 3), activation=LeakyReLU(alpha=0.2), padding='same')(d4)
-    d4 = Conv2D(filters[3], (3, 3), activation=LeakyReLU(alpha=0.2), padding='same')(d4)
+    #d4 = upsample_and_concatenate(bn, c4, filters[3])
+    #d4 = Conv2D(filters[3], (3, 3), activation=LeakyReLU(alpha=0.2), padding='same')(d4)
+    #d4 = Conv2D(filters[3], (3, 3), activation=LeakyReLU(alpha=0.2), padding='same')(d4)
 
-    d3 = upsample_and_concatenate(d4, c3, filters[2])
+    d3 = upsample_and_concatenate(bn, c3, filters[2])
     d3 = Conv2D(filters[2], (3, 3), activation=LeakyReLU(alpha=0.2), padding='same')(d3)
     d3 = Conv2D(filters[2], (3, 3), activation=LeakyReLU(alpha=0.2), padding='same')(d3)
 
@@ -97,11 +98,11 @@ def define_discriminator(image_shape=(256, 256, 3)):
     d = layers.LeakyReLU(alpha=0.2)(d)
     d = Dropout(0.3)(d)
 
-    # Third Convolution Block
-    # d = layers.Conv2D(filters[2], (4, 4), strides=(2, 2), padding='same')(d)
-    # d = layers.LayerNormalization()(d)
-    # d = layers.LeakyReLU(alpha=0.2)(d)
-    # d = Dropout(0.3)(d)
+    Third Convolution Block
+    d = layers.Conv2D(filters[2], (4, 4), strides=(2, 2), padding='same')(d)
+    d = layers.LayerNormalization()(d)
+    d = layers.LeakyReLU(alpha=0.2)(d)
+    d = Dropout(0.3)(d)
 
     out = layers.Flatten()(d)
     out = layers.Dense(1)(out)

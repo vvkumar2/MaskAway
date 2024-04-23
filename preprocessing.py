@@ -68,7 +68,7 @@ def create_dataset(mask_paths, binary_paths, batch_size, shuffle=False):
         )
     )
     if shuffle:
-        dataset = dataset.shuffle(buffer_size=len(mask_paths))
+        dataset = dataset.shuffle(buffer_size=10000)
     return dataset.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
 
 def image_generator_gan(orig_paths, mask_paths, binary_paths):
@@ -92,5 +92,5 @@ def create_dataset_gan(orig_paths, mask_paths, binary_paths, batch_size, shuffle
         )
     )
     if shuffle:
-        dataset = dataset.shuffle(buffer_size=len(mask_paths))
+        dataset = dataset.shuffle(buffer_size=10000)
     return dataset.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
