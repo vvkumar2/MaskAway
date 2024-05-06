@@ -35,11 +35,10 @@ train_orig_paths, test_orig_paths, train_mask_paths, test_mask_paths, train_bina
 train_dataset_gan_len = len(train_orig_paths)
 test_dataset_gan_len = len(test_orig_paths)
 print(train_dataset_gan_len, test_dataset_gan_len)
-train_dataset_gan = create_dataset_gan(train_orig_paths, train_mask_paths, train_binary_paths, GAN_BATCH_SIZE, shuffle=True)
+train_dataset_gan = create_dataset_gan(train_orig_paths, train_mask_paths, train_binary_paths, GAN_BATCH_SIZE, train=True, shuffle=True)
 test_dataset_gan = create_dataset_gan(test_orig_paths, test_mask_paths, test_binary_paths, GAN_BATCH_SIZE)
 
 # Define models
-IMG_SHAPE = (256, 256, 3)
 generator = define_generator()
 discriminator = define_discriminator()
 
@@ -108,7 +107,7 @@ def generate_and_save_images(generator, epoch, test_dataset, num_samples=20, sav
     # Save the figure
     plt.savefig(os.path.join(save_dir, f'generated_images_epoch_{epoch}.png'))
 
-def generate_random_policy(color_prob=0.7, translation_prob=0.5, cutout_prob=0.35):
+def generate_random_policy(color_prob=0.5, translation_prob=0.35, cutout_prob=0.25):
     policy_parts = []
     if random.random() < color_prob:
         policy_parts.append('color')
@@ -130,7 +129,7 @@ def WGAN_GP_train_d_step(real_images, masked_images, binary_masks, batch_size, s
     One discriminator training step for WGAN-GP
     '''
     # Initialize necessary variables
-    epsilon = tf.random.uniform([batch_size, 1, 1, 1], 0.0, 1.0)
+    epsilon = tf.random.uniform([batch_size, 1, 1, 1], 0.0, 0.1)
     
     # Concatenate masked_images and binary_masks as generator input
     generator_input = tf.concat([masked_images, binary_masks], axis=-1)
@@ -234,6 +233,12 @@ for epoch in range(CURRENT_EPOCH, EPOCHS + 1):
 
         if step % 100 == 0:
             print('.', end='')
+    
+    # Write summaries for tensorboard
+    with TRAIN_WRITER.as_default():
+        tf.summary.scalar('epoch_generator_loss', epoch_gen_loss_avg.result(), step=epoch)
+        tf.summary.scalar('epoch_discriminator_loss', epoch_disc_loss_avg.result(), step=epoch)
+        TRAIN_WRITER.flush()
 
     # Generate and save images at the end of the epoch
     generate_and_save_images(generator, epoch, test_dataset_gan)
@@ -242,6 +247,10 @@ for epoch in range(CURRENT_EPOCH, EPOCHS + 1):
         # Assuming `ckpt_manager` is set up for checkpointing
         ckpt_save_path = ckpt_manager.save()
         print(f'Saving checkpoint for epoch {epoch} at {ckpt_save_path}')
+
+    if epoch == N_CRITIC_UPDATE:
+        N_CRITIC+=2
+        N_CRITIC_UPDATE+=100
 
     print(f'\nEpoch {epoch}: Avg Generator Loss: {epoch_gen_loss_avg.result()}, Avg Discriminator Loss: {epoch_disc_loss_avg.result()}')
     print(f'Time taken for epoch {epoch} is {time.time() - start} sec\n')

@@ -17,7 +17,8 @@ def preprocess_image(image_path, is_binary=False, size=IMAGE_SIZE):
     image = cv2.resize(image, size)
 
     # Normalize the image
-    image = image / 255.0
+    image = image.astype(np.float32)
+    image = (image / 127.5) - 1
 
     # If binary, add channel dimension
     if is_binary:
@@ -71,20 +72,21 @@ def create_dataset(mask_paths, binary_paths, batch_size, shuffle=False):
         dataset = dataset.shuffle(buffer_size=10000)
     return dataset.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
 
-def image_generator_gan(orig_paths, mask_paths, binary_paths):
+def image_generator_gan(orig_paths, mask_paths, binary_paths, train=False):
     for orig_path, mask_path, binary_path in zip(orig_paths, mask_paths, binary_paths):
         mask_img = preprocess_image(mask_path)
         binary_img = preprocess_image(binary_path, is_binary=True)
         orig_img = preprocess_image(orig_path)
-
+    
         # Apply consistent augmentation to both
-        # mask_img, binary_img = augment_images(mask_img, binary_img)
+        # if train:
+        #   mask_img, binary_img = augment_images(mask_img, binary_img)
 
         yield (orig_img, mask_img, binary_img)
 
-def create_dataset_gan(orig_paths, mask_paths, binary_paths, batch_size, shuffle=False):
+def create_dataset_gan(orig_paths, mask_paths, binary_paths, batch_size, train=False, shuffle=False):
     dataset = tf.data.Dataset.from_generator(
-        lambda: image_generator_gan(orig_paths, mask_paths, binary_paths),
+        lambda: image_generator_gan(orig_paths, mask_paths, binary_paths, train=train),
         output_signature=(
             tf.TensorSpec(shape=(IMAGE_WIDTH, IMAGE_HEIGHT, 3), dtype=tf.float32),
             tf.TensorSpec(shape=(IMAGE_WIDTH, IMAGE_HEIGHT, 3), dtype=tf.float32),

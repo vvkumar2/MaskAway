@@ -5,3 +5,4 @@ __pycache__/
 checkpoints/
 checkpoints_3l_50k/
 checkpoints_3l_25k/
+checkpoints_*
