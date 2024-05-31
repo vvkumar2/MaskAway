@@ -1,5 +1,7 @@
 import tensorflow as tf
-from helper import *
+import numpy as np
+import cv2
+from utils import *
 from constants import *
 
 def get_file_paths(directory):
@@ -7,18 +9,20 @@ def get_file_paths(directory):
     paths = [os.path.join(directory, file) for file in os.listdir(directory) if file != '.DS_Store']
     return sorted(paths, key=lambda x: x.split('/')[-1])
 
-def preprocess_image(image_path, is_binary=False, size=IMAGE_SIZE):
-    # Read the image
+def preprocess_image(image_path, is_binary=False, size=IMAGE_SIZE, isSegmentation=False):
     image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE if is_binary else cv2.IMREAD_COLOR)
     if not is_binary:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    # Resize the image
     image = cv2.resize(image, size)
 
-    # Normalize the image
+    # Normalize the image to the range [-1, 1] if not segmentation (for tanh)
     image = image.astype(np.float32)
-    image = (image / 127.5) - 1
+    if not isSegmentation:
+        image = (image / 127.5) - 1
+    # Normalize the image to the range [0, 1] if segmentation (for sigmoid)
+    else:
+        image = image / 255.0
 
     # If binary, add channel dimension
     if is_binary:
@@ -77,11 +81,7 @@ def image_generator_gan(orig_paths, mask_paths, binary_paths, train=False):
         mask_img = preprocess_image(mask_path)
         binary_img = preprocess_image(binary_path, is_binary=True)
         orig_img = preprocess_image(orig_path)
-    
-        # Apply consistent augmentation to both
-        # if train:
-        #   mask_img, binary_img = augment_images(mask_img, binary_img)
-
+        
         yield (orig_img, mask_img, binary_img)
 
 def create_dataset_gan(orig_paths, mask_paths, binary_paths, batch_size, train=False, shuffle=False):

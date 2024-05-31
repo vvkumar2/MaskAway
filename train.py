@@ -6,21 +6,19 @@ import time
 import matplotlib.pyplot as plt
 import DiffAugment_tf
 from constants import *
-from helper import *
+from utils import *
 from preprocessing import *
 from model import *
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import Adam
 from keras import backend as K
 
-'''
-# Create directory if needed
-os.makedirs(DATASET_PATH, exist_ok=True)
 
-# Unzip dataset - contains three folders (orig, mask, binary)
-with zipfile.ZipFile(BASE_PATH + '/dataset-200k.zip', 'r') as zip_ref:
-    zip_ref.extractall(DATASET_PATH)
-'''
+# Check if dataset is already extracted
+if not os.path.exists(DATASET_PATH):
+    os.makedirs(DATASET_PATH, exist_ok=True)
+    with zipfile.ZipFile(BASE_PATH + '/dataset-200k.zip', 'r') as zip_ref:
+        zip_ref.extractall(DATASET_PATH)
 
 # Create datasets for training and testing
 gan_original_images_paths = get_file_paths(ORIGINAL_IMAGES_PATH)[:DATASET_SIZE]
@@ -76,37 +74,6 @@ def update_learning_rate(current_lr, decay_factor=DECAY_FACTOR):
     discriminator_optimizer.lr = new_lr
     return new_lr
 
-def generate_and_save_images(generator, epoch, test_dataset, num_samples=20, save_dir='content/generated_images'):
-    # Ensure the output directory exists
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    
-    # Initialize lists to hold input images for generation
-    gen_input_list = []
-
-    # Gather the first num_samples from the test dataset
-    for real_images, masked_images, binary_masks in test_dataset.take(num_samples):
-        gen_input = tf.concat([masked_images, binary_masks], axis=-1)
-        gen_input_list.append(gen_input)
-    
-    # Concatenate all gathered inputs
-    gen_input_array = np.vstack(gen_input_list)
-
-    # Generate images
-    predictions = generator.predict(gen_input_array)
-    
-    # Plot the results
-    fig, axes = plt.subplots(nrows=4, ncols=5, figsize=(10, 8))
-    for i, ax in enumerate(axes.flat):
-        if i < predictions.shape[0]:  # Check to avoid index error
-            img = (predictions[i] + 1) / 2  # Rescale images from [-1, 1] to [0, 1]
-            ax.imshow(img)
-            ax.axis('off')
-    plt.suptitle(f'Generated Images at Epoch {epoch}')
-    
-    # Save the figure
-    plt.savefig(os.path.join(save_dir, f'generated_images_epoch_{epoch}.png'))
-
 def generate_random_policy(color_prob=0.5, translation_prob=0.35, cutout_prob=0.25):
     policy_parts = []
     if random.random() < color_prob:
@@ -124,36 +91,36 @@ def add_noise_to_inputs(inputs, std_dev=0.15):
 
 
 @tf.function
-def WGAN_GP_train_d_step(real_images, masked_images, binary_masks, batch_size, step):
+def WGAN_GP_train_d_step(real_images, masked_images, binary_masks, batch_size, step, epoch):
     '''
     One discriminator training step for WGAN-GP
     '''
-    # Initialize necessary variables
     epsilon = tf.random.uniform([batch_size, 1, 1, 1], 0.0, 0.1)
-    
+
     # Concatenate masked_images and binary_masks as generator input
     generator_input = tf.concat([masked_images, binary_masks], axis=-1)
 
     with tf.GradientTape(persistent=True) as d_tape:
-        # Generate fake images
         fake_images = generator(generator_input, training=True)
 
         # Apply augmentation and noise to real and fake images
         policy = generate_random_policy()
         aug_real_images = DiffAugment_tf.DiffAugment(real_images, policy=policy)
         aug_fake_images = DiffAugment_tf.DiffAugment(fake_images, policy=policy)
-        aug_real_images = add_noise_to_inputs(aug_real_images)
-        aug_fake_images = add_noise_to_inputs(aug_fake_images)
+        aug_real_images = add_noise_to_inputs(aug_real_images, epoch)
+        aug_fake_images = add_noise_to_inputs(aug_fake_images, epoch)
 
         with tf.GradientTape() as gp_tape:
             interpolated_images = epsilon * aug_real_images + (1 - epsilon) * aug_fake_images
             gp_tape.watch(interpolated_images)
             pred_interpolated = discriminator(interpolated_images, training=True)
-        
+
         # Gradient penalty calculation
         gradients = gp_tape.gradient(pred_interpolated, [interpolated_images])[0]
         gradients_norm = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis=[1, 2, 3]))
-        gradient_penalty = tf.reduce_mean(tf.square(gradients_norm - 1.0))
+        # Using updated gradient penalty formula
+        gradient_penalty = tf.reduce_mean(tf.square(tf.clip_by_value(gradients_norm - 1.0, 0., np.infty)))
+
 
         fake_pred = discriminator(aug_fake_images, training=True)
         real_pred = discriminator(aug_real_images, training=True)
@@ -197,15 +164,15 @@ def WGAN_GP_train_g_step(masked_images, binary_masks, step):
           tf.summary.histogram(var.name, grad, step=step)
         tf.summary.scalar('g_loss', g_loss, step=step)
       TRAIN_WRITER.flush()
-    
+
     return g_loss
 
 
+# Initialize training variables
 current_learning_rate = INIT_LR
-trace = True
 n_critic_count = 0
 
-# Assuming `train_dataset` yields a tuple of (masked_images, binary_masks, real_images_without_mask)
+# `train_dataset` yields a tuple of (masked_images, binary_masks, real_images_without_mask)
 for epoch in range(CURRENT_EPOCH, EPOCHS + 1):
     start = time.time()
     print(f'Start of epoch {epoch}')
@@ -214,17 +181,17 @@ for epoch in range(CURRENT_EPOCH, EPOCHS + 1):
     epoch_gen_loss_avg = tf.metrics.Mean()
     epoch_disc_loss_avg = tf.metrics.Mean()
 
-    # Using learning rate decay
+    # Learning rate decay
     current_learning_rate = update_learning_rate(current_learning_rate)
     print(f'current_learning_rate {current_learning_rate}')
 
     for step, (real_images, masked_images, binary_masks) in enumerate(train_dataset_gan):
         current_batch_size = real_images.shape[0]
-        # Train discriminator (critic)
-        disc_loss = WGAN_GP_train_d_step(real_images, masked_images, binary_masks, batch_size=tf.constant(current_batch_size, dtype=tf.int64), step=tf.constant(step, dtype=tf.int64))
+        # Train critic
+        disc_loss = WGAN_GP_train_d_step(real_images, masked_images, binary_masks, batch_size=tf.constant(current_batch_size, dtype=tf.int64), step=tf.constant(step, dtype=tf.int64), epoch=epoch)
         epoch_disc_loss_avg.update_state(disc_loss)
         n_critic_count += 1
-        
+
         if n_critic_count >= N_CRITIC:
             # Train generator
             gen_loss = WGAN_GP_train_g_step(masked_images, binary_masks, step=tf.constant(step, dtype=tf.int64))
@@ -233,7 +200,7 @@ for epoch in range(CURRENT_EPOCH, EPOCHS + 1):
 
         if step % 100 == 0:
             print('.', end='')
-    
+
     # Write summaries for tensorboard
     with TRAIN_WRITER.as_default():
         tf.summary.scalar('epoch_generator_loss', epoch_gen_loss_avg.result(), step=epoch)
@@ -244,21 +211,18 @@ for epoch in range(CURRENT_EPOCH, EPOCHS + 1):
     generate_and_save_images(generator, epoch, test_dataset_gan)
 
     if epoch % SAVE_EVERY_N_EPOCH == 0:
-        # Assuming `ckpt_manager` is set up for checkpointing
         ckpt_save_path = ckpt_manager.save()
         print(f'Saving checkpoint for epoch {epoch} at {ckpt_save_path}')
 
-    if epoch == N_CRITIC_UPDATE:
-        N_CRITIC+=2
-        N_CRITIC_UPDATE+=100
-
     print(f'\nEpoch {epoch}: Avg Generator Loss: {epoch_gen_loss_avg.result()}, Avg Discriminator Loss: {epoch_disc_loss_avg.result()}')
     print(f'Time taken for epoch {epoch} is {time.time() - start} sec\n')
+
     gc.collect()
 
-# Save at the final epoch
+
+# Save at the very end
 ckpt_save_path = ckpt_manager.save()
 print(f'Saving checkpoint for epoch {EPOCHS} at {ckpt_save_path}')
 
-generator.save('content/gan_models/generator_wgangp')  # SavedModel format
-discriminator.save('content/gan_models/discriminator_wgangp')  # SavedModel format
+generator.save('content/drive/MyDrive/MaskAway/generator_wgangp')
+discriminator.save('content/drive/MyDrive/MaskAway/discriminator_wgangp')

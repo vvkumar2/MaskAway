@@ -4,7 +4,6 @@
 
 import tensorflow as tf
 
-
 def DiffAugment(x, policy='', channels_first=False):
     if policy:
         if channels_first:

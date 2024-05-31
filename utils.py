@@ -1,28 +1,15 @@
 import os
-import cv2
+import gc
+import random
 import numpy as np
 from constants import *
+import matplotlib.pyplot as plt
 
-def learning_rate_decay(current_lr, decay_factor=DECAY_FACTOR):
-    '''
-        Calculate new learning rate using decay factor
-    '''
-    new_lr = max(current_lr / decay_factor, MIN_LR)
-    return new_lr
-
-def set_learning_rate(new_lr):
-    '''
-        Set new learning rate to optimizers
-    '''
-    K.set_value(discriminator_optimizer.lr, new_lr)
-    K.set_value(generator_optimizer.lr, new_lr)
-
-def generate_and_save_images(generator, epoch, test_dataset, num_samples=20, save_dir='/content/generated_images'):
+def generate_and_save_images(generator, epoch, test_dataset, num_samples=20, save_dir='content/generated_images'):
     # Ensure the output directory exists
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     
-    # Initialize lists to hold input images for generation
     gen_input_list = []
 
     # Gather the first num_samples from the test dataset
@@ -39,16 +26,16 @@ def generate_and_save_images(generator, epoch, test_dataset, num_samples=20, sav
     # Plot the results
     fig, axes = plt.subplots(nrows=4, ncols=5, figsize=(10, 8))
     for i, ax in enumerate(axes.flat):
-        if i < predictions.shape[0]:  # Check to avoid index error
-            img = (predictions[i] + 1) / 2  # Rescale images from [-1, 1] to [0, 1]
+        if i < predictions.shape[0]:
+            # Rescale images from [-1, 1] to [0, 1]
+            img = (predictions[i] + 1) / 2  
             ax.imshow(img)
             ax.axis('off')
     plt.suptitle(f'Generated Images at Epoch {epoch}')
     
-    # Save the figure
     plt.savefig(os.path.join(save_dir, f'generated_images_epoch_{epoch}.png'))
 
-def generate_random_policy(color_prob=0.7, translation_prob=0.5, cutout_prob=0.35):
+def generate_random_policy(color_prob=0.30, translation_prob=0, cutout_prob=0):
     policy_parts = []
     if random.random() < color_prob:
         policy_parts.append('color')
@@ -62,3 +49,13 @@ def generate_random_policy(color_prob=0.7, translation_prob=0.5, cutout_prob=0.3
 def add_noise_to_inputs(inputs, std_dev=0.15):
     noise = tf.random.normal(shape=tf.shape(inputs), mean=0.0, stddev=std_dev, dtype=tf.float32)
     return inputs + noise
+
+def calculate_iou(y_true, y_pred):
+    intersection = np.logical_and(y_true, y_pred)
+    union = np.logical_or(y_true, y_pred)
+    iou_score = np.sum(intersection) / np.sum(union)
+    return iou_score
+
+class GarbageCollectorCallback(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        gc.collect()
