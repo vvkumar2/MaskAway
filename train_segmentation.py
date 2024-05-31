@@ -1,8 +1,8 @@
 import os
 import zipfile
-from model import UNet
-from constants import *
-from preprocessing import get_file_paths, create_dataset, GarbageCollectorCallback
+from models import UNet
+from utils.constants import *
+from utils.preprocessing import get_file_paths, create_dataset, GarbageCollectorCallback
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau, TensorBoard
 from sklearn.model_selection import train_test_split
 

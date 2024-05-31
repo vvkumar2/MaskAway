@@ -5,10 +5,10 @@ import gc
 import time
 import matplotlib.pyplot as plt
 import DiffAugment_tf
-from constants import *
-from utils import *
-from preprocessing import *
-from model import *
+from utils.constants import *
+from utils.helper import *
+from utils.preprocessing import *
+from models import *
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import Adam
 from keras import backend as K

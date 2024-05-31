@@ -1,4 +1,4 @@
-from constants import *
+from utils.constants import *
 import tensorflow as tf
 from tensorflow.keras import layers, models
 
