@@ -39,7 +39,7 @@ The dataset used in this project was generated using [MaskTheFace](https://githu
 
 Below is one of my favorite examples from the project. In the top right, you can see the output of our segmentation model, and in the bottom right, you can see the generator's output. Notice how the generated image infers that the person is smiling with their teeth, even though they weren't in the original image. This discrepancy highlights the model's interpretative capabilities, which, while not perfectly accurate, still aligns impressively with human features.
 
-![Example Output](https://ibb.co/YpqdvzX)
+![Example Output](example_images/example_3.png)
 
 This example illustrates the effectiveness of the segmentation and generative models in handling complex facial expressions under occlusions like masks.
 
